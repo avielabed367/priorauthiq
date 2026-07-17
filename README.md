@@ -1,54 +1,106 @@
-# PriorAuthIQ
+# PriorAuthIQ V2
 
-PriorAuthIQ is a fake-data demo for front-end denial-risk review.
+PriorAuthIQ V2 is a fake-data pre-visit case-readiness and exception-management demo for billing and RCM teams.
 
-The demo helps billing/admin teams review sample cases for eligibility, authorization, documentation, coding, coverage/network, and follow-up risks before they become denials, delays, or unpaid claims.
+It helps a reviewer organize:
 
-## Important demo warning
+- date-of-service eligibility and benefits;
+- Coordination of Benefits;
+- network status and patient responsibility;
+- CPT-specific coverage, authorization, referral, and visit/unit limits;
+- ICD-10 information and supporting documentation;
+- payer evidence, source dates, and reference numbers;
+- unresolved exceptions, owners, priorities, and deadlines;
+- human decisions, resolution notes, and audit history.
 
-This project is currently a fake/sample-data demo only.
+The product principle is: **readiness over generic risk scoring, evidence over unsupported claims, and visible exceptions over memory-based follow-up.**
 
-Do **not** enter real patient information, real insurance IDs, real medical record numbers, real clinic records, or protected health information.
+## Safety boundary
 
-PriorAuthIQ does **not** make final billing, medical, legal, or coverage decisions. Human review is required.
+This project is a fake/sample-data demo only.
 
-## Current product direction
+Do not enter real names, addresses, dates of birth, member IDs, insurance-card images, medical records, or other protected health information. PriorAuthIQ does not make final payer, medical, coding, legal, or coverage decisions. Human review is required.
 
-PriorAuthIQ is focused on helping billing/admin teams catch upstream workflow issues earlier, including:
+## What changed in V2
 
-- Eligibility and benefits gaps
-- Prior authorization uncertainty
-- Missing plan of care, referral, or documentation
-- Weak medical necessity support
-- Coding risk
-- Coverage or network risk
-- Visit-limit uncertainty
-- Front desk / provider follow-up gaps
-- Unassigned workflow tasks
+The old broad high/medium/low denial-risk cards were replaced by an operational workflow:
 
-The goal is not to create another complicated dashboard.
+1. Review a fictional case.
+2. Verify the available evidence.
+3. Show Ready, Query, Warning, Manual Review, or Blocked status.
+4. Create one exception for every unresolved check.
+5. Assign an owner, priority, and due date.
+6. Record payer response and resolution.
+7. Preserve a printable Benefits Verification Record and audit history.
 
-The goal is to provide a simple review tool that shows:
+The review engine is deterministic. It flags only structured facts and missing evidence supplied in the case. It does not use a language model to invent payer rules.
 
-1. What is risky
-2. What is missing
-3. Why it matters
-4. Who may need to follow up
-5. What should happen next
-6. A draft follow-up message for human review
+## Included fictional workflows
+
+- Physical therapy
+- Behavioral health
+- Pain management
+
+These are demonstration cases, not validated payer rules or universal specialty templates.
 
 ## Tech stack
 
-- Next.js App Router
+- Next.js 16 App Router
+- React 19
 - TypeScript
-- Tailwind CSS
-- Supabase Auth / Database
-- OpenAI API
-- PDF text extraction for sample/demo files
+- Tailwind CSS 4
+- Supabase Auth and Postgres
+- `pdf-parse` for the existing fake-document extraction endpoint
+
+## Important routes
+
+- `/` — product homepage
+- `/new-case` — guided fictional case review
+- `/dashboard` — case and exception queue
+- `/cases/[id]` — full readiness workspace
+- `/feedback` — workflow feedback form
+- `/feedback-inbox` — admin feedback inbox
+- `/usage` — admin review-usage monitor
 
 ## Local setup
 
-Install dependencies:
+```bash
+npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+Then open `http://localhost:3000`.
+
+The UI and built-in fictional cases work without a configured Supabase project. Saving, authentication, feedback storage, and admin usage monitoring require Supabase.
+
+## Supabase migration
+
+Read `SUPABASE_SETUP.md`, then run these files in order:
+
+1. `supabase/migrations/20260716_priorauthiq_v2.sql`
+2. `supabase/verify_v2.sql`
+
+The migration is backward-compatible: it preserves the legacy fields and stores the complete V2 case in `case_data` JSONB while duplicating important queue fields into indexed columns.
+
+## Quality checks
 
 ```bash
-npm install
+npm run lint
+npm run build
+```
+
+## Deployment
+
+Deploy the project to Vercel and configure:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `DAILY_ANALYSIS_LIMIT` (optional)
+
+No `OPENAI_API_KEY` is required for V2.
+
+## Validation target
+
+The first useful measurement is not a promise of denial reduction. Test whether the workflow reduces the percentage of exceptions that remain unresolved as the service deadline approaches, without creating extra work for the reviewer.

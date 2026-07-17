@@ -99,7 +99,12 @@ export default function UsagePage() {
   }
 
   useEffect(() => {
-    loadUsage();
+    const timeoutId = window.setTimeout(() => {
+      void loadUsage();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const recentLogs = useMemo(() => {
@@ -176,7 +181,7 @@ export default function UsagePage() {
             Admin usage monitor
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight">AI Usage</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Readiness Review Usage</h1>
 
           <p className="mt-2 max-w-3xl text-slate-400">
             Monitor sample-case analysis usage and confirm the daily analysis
@@ -198,7 +203,7 @@ export default function UsagePage() {
           <ShieldAlert size={16} />
           Demo safety reminder
         </div>
-        Usage logs only track AI analysis activity for the fake/sample demo.
+        Usage logs only track structured readiness-review activity for the fake/sample demo.
         The app should not be used with real patient information.
       </div>
 
@@ -288,7 +293,7 @@ export default function UsagePage() {
                       <div className="font-medium">{user.email}</div>
 
                       <div className="mt-1 text-xs text-slate-500">
-                        Last analysis:{" "}
+                        Last review:{" "}
                         {new Date(user.latest).toLocaleString()}
                       </div>
                     </div>
@@ -316,7 +321,7 @@ export default function UsagePage() {
           </div>
 
           <p className="mt-2 text-sm text-slate-500">
-            Recent AI analysis events from the fake/sample demo.
+            Recent case-readiness review events from the fake/sample demo.
           </p>
 
           <div className="mt-5 space-y-3">

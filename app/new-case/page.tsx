@@ -1,320 +1,322 @@
 "use client";
 
-import AppShell from "@/components/AppShell";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  CheckCircle2,
   ClipboardCheck,
-  ClipboardList,
   Copy,
-  FileText,
-  ShieldAlert,
+  FileSearch,
+  Plus,
+  RotateCcw,
+  Save,
   Sparkles,
-  UploadCloud,
+  Trash2,
 } from "lucide-react";
+import AppShell from "@/components/AppShell";
+import { PriorityBadge, StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { demoCases } from "@/lib/demoCases";
-import { PriorAuthCase, RiskIssue, RiskLevel } from "@/lib/types";
+import { sampleCaseRequests } from "@/lib/demoCases";
 import { addSupabaseCase, getCurrentUserId } from "@/lib/supabaseCases";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  AnalyzeCaseRequest,
+  AuthorizationStatus,
+  CobStatus,
+  DocumentItem,
+  EligibilityStatus,
+  NetworkStatus,
+  PriorAuthCase,
+  ReferralStatus,
+  RequirementState,
+  ReviewState,
+  ServiceLine,
+  VerificationSource,
+  YesNoUnknown,
+} from "@/lib/types";
 
-type AnalysisResult = {
-  patientLabel: string;
-  practiceName: string;
-  payer: string;
-  service: string;
-  overallRiskLevel: RiskLevel;
-  riskReason: string;
-  issuesFound: RiskIssue[];
-  missingItems: string[];
-  recommendedNextSteps: string[];
-  summary: string;
-  followUpMessage: string;
-  humanReviewRequired: boolean;
-};
+const sourceOptions: VerificationSource[] = [
+  "Verified from payer",
+  "Verified from EHR",
+  "Verified by payer phone call",
+  "Uploaded payer document",
+  "Manually entered",
+  "Conflicting sources",
+  "Not verified",
+  "Insufficient information",
+];
 
-const MAX_CASE_CHARS = 15000;
-const MAX_NOTES_CHARS = 10000;
+const eligibilityOptions: EligibilityStatus[] = [
+  "Active",
+  "Inactive",
+  "Not verified",
+  "Conflicting",
+];
 
-const defaultSampleCase = demoCases[0];
+const networkOptions: NetworkStatus[] = [
+  "In network",
+  "Out of network with OON benefit",
+  "Out of network without OON benefit",
+  "Unknown",
+];
 
-function readTextFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+const cobOptions: CobStatus[] = [
+  "No secondary coverage reported",
+  "Primary payer confirmed",
+  "Primary and secondary confirmed",
+  "COB information missing",
+  "COB conflict",
+  "Patient confirmation required",
+  "Payer confirmation required",
+  "Manual review required",
+];
 
-    reader.onload = () => {
-      resolve(String(reader.result || ""));
-    };
+const authorizationOptions: AuthorizationStatus[] = [
+  "Not reviewed",
+  "Not required",
+  "Required - not submitted",
+  "Pending",
+  "Approved",
+  "Denied",
+  "Expired",
+  "Unclear",
+];
 
-    reader.onerror = () => {
-      reject(new Error("Could not read file."));
-    };
+const referralOptions: ReferralStatus[] = [
+  "Not reviewed",
+  "Not required",
+  "Valid",
+  "Missing",
+  "Expired",
+  "Mismatched",
+  "Unclear",
+];
 
-    reader.readAsText(file);
-  });
+function cloneSample(index: number) {
+  return structuredClone(sampleCaseRequests[index]);
 }
 
-async function getAccessToken() {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token || null;
+function toLocalDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
-function getRiskBadgeVariant(riskLevel: RiskLevel) {
-  if (riskLevel === "High") {
-    return "destructive";
-  }
+function localDateTimeToIso(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
 
-  if (riskLevel === "Medium") {
-    return "secondary";
-  }
+function makeService(): ServiceLine {
+  return {
+    id: crypto.randomUUID(),
+    cpt: "",
+    description: "",
+    covered: "Unknown",
+    coveragePercent: "",
+    authorizationRequirement: "Unknown",
+    referralRequirement: "Unknown",
+    networkRequirement: "",
+    requestedUnits: 1,
+    visitLimit: null,
+    usedUnits: null,
+    remainingUnits: null,
+    copay: "",
+    coinsurance: "",
+    deductibleApplies: "Unknown",
+    source: "Not verified",
+    verifiedDate: "",
+    referenceNumber: "",
+    reviewState: "Not reviewed",
+  };
+}
 
-  return "outline";
+function makeDocument(): DocumentItem {
+  return {
+    id: crypto.randomUUID(),
+    name: "New document",
+    required: "Unknown",
+    status: "Needs review",
+    blocking: false,
+    source: "Not verified",
+    fileName: "",
+    verifiedDate: "",
+    notes: "",
+  };
 }
 
 export default function NewCasePage() {
   const router = useRouter();
-
+  const [draft, setDraft] = useState<AnalyzeCaseRequest>(() => cloneSample(0));
+  const [selectedSample, setSelectedSample] = useState(0);
+  const [result, setResult] = useState<PriorAuthCase | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [patientLabel, setPatientLabel] = useState(defaultSampleCase.patientLabel);
-  const [practiceName, setPracticeName] = useState(defaultSampleCase.practiceName);
-  const [payer, setPayer] = useState(defaultSampleCase.payer);
-  const [service, setService] = useState(defaultSampleCase.service);
-  const [sourceCaseText, setSourceCaseText] = useState(
-    defaultSampleCase.sourceCaseText || ""
-  );
-  const [notesText, setNotesText] = useState(defaultSampleCase.notesText || "");
-  const [demoAcknowledged, setDemoAcknowledged] = useState(true);
-
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [extractingPdf, setExtractingPdf] = useState(false);
-  const [copyMessage, setCopyMessage] = useState("");
-
-  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
-  const [fileMessage, setFileMessage] = useState(
-    "Loaded sample case: Jordan Miller — front-end denial-risk review."
-  );
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    async function loadUser() {
-      const currentUserId = await getCurrentUserId();
-      setUserId(currentUserId);
-    }
-
-    loadUser();
+    getCurrentUserId().then(setUserId);
   }, []);
 
-  function setLimitedCaseText(value: string) {
-    setSourceCaseText(value.slice(0, MAX_CASE_CHARS));
+  const openExceptions = useMemo(
+    () =>
+      result?.exceptions.filter(
+        (item) => !["Resolved", "Dismissed"].includes(item.status)
+      ) || [],
+    [result]
+  );
+
+  function updateDraft<K extends keyof AnalyzeCaseRequest>(
+    key: K,
+    value: AnalyzeCaseRequest[K]
+  ) {
+    setDraft((current) => ({ ...current, [key]: value }));
+    setResult(null);
   }
 
-  function setLimitedNotesText(value: string) {
-    setNotesText(value.slice(0, MAX_NOTES_CHARS));
+  function updateInsurance<K extends keyof AnalyzeCaseRequest["insurance"]>(
+    key: K,
+    value: AnalyzeCaseRequest["insurance"][K]
+  ) {
+    setDraft((current) => ({
+      ...current,
+      insurance: { ...current.insurance, [key]: value },
+    }));
+    setResult(null);
   }
 
-  function loadSampleCase(index: number) {
-    const selected = demoCases[index];
+  function updateResponsibility<
+    K extends keyof AnalyzeCaseRequest["insurance"]["patientResponsibility"]
+  >(
+    key: K,
+    value: AnalyzeCaseRequest["insurance"]["patientResponsibility"][K]
+  ) {
+    setDraft((current) => ({
+      ...current,
+      insurance: {
+        ...current.insurance,
+        patientResponsibility: {
+          ...current.insurance.patientResponsibility,
+          [key]: value,
+        },
+      },
+    }));
+    setResult(null);
+  }
 
-    setPatientLabel(selected.patientLabel);
-    setPracticeName(selected.practiceName);
-    setPayer(selected.payer);
-    setService(selected.service);
-    setLimitedCaseText(selected.sourceCaseText || "");
-    setLimitedNotesText(selected.notesText || "");
+  function updateService<K extends keyof ServiceLine>(
+    id: string,
+    key: K,
+    value: ServiceLine[K]
+  ) {
+    setDraft((current) => ({
+      ...current,
+      services: current.services.map((item) =>
+        item.id === id ? { ...item, [key]: value } : item
+      ),
+    }));
+    setResult(null);
+  }
+
+  function updateDiagnosis(
+    id: string,
+    key: keyof AnalyzeCaseRequest["diagnoses"][number],
+    value: string | string[] | boolean
+  ) {
+    setDraft((current) => ({
+      ...current,
+      diagnoses: current.diagnoses.map((item) =>
+        item.id === id ? { ...item, [key]: value } : item
+      ),
+    }));
+    setResult(null);
+  }
+
+  function updateAuthorization<K extends keyof AnalyzeCaseRequest["authorization"]>(
+    key: K,
+    value: AnalyzeCaseRequest["authorization"][K]
+  ) {
+    setDraft((current) => ({
+      ...current,
+      authorization: { ...current.authorization, [key]: value },
+    }));
+    setResult(null);
+  }
+
+  function updateReferral<K extends keyof AnalyzeCaseRequest["referral"]>(
+    key: K,
+    value: AnalyzeCaseRequest["referral"][K]
+  ) {
+    setDraft((current) => ({
+      ...current,
+      referral: { ...current.referral, [key]: value },
+    }));
+    setResult(null);
+  }
+
+  function updateDocument<K extends keyof DocumentItem>(
+    id: string,
+    key: K,
+    value: DocumentItem[K]
+  ) {
+    setDraft((current) => ({
+      ...current,
+      documents: current.documents.map((item) =>
+        item.id === id ? { ...item, [key]: value } : item
+      ),
+    }));
+    setResult(null);
+  }
+
+  function loadSample(index: number) {
+    setSelectedSample(index);
+    setDraft(cloneSample(index));
     setResult(null);
     setError("");
-    setCopyMessage("");
-    setFileMessage(`Loaded sample case: ${selected.patientLabel}`);
-  }
-
-  async function handleCaseTextFileChange(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      const text = await readTextFile(file);
-      setLimitedCaseText(text);
-
-      if (text.length > MAX_CASE_CHARS) {
-        setFileMessage(
-          `Loaded first ${MAX_CASE_CHARS.toLocaleString()} characters from ${file.name}.`
-        );
-      } else {
-        setFileMessage(`Loaded sample case text file: ${file.name}`);
-      }
-    } catch {
-      setFileMessage("Could not read that sample case text file.");
-    }
-  }
-
-  async function handleNotesFileChange(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      const text = await readTextFile(file);
-      setLimitedNotesText(text);
-
-      if (text.length > MAX_NOTES_CHARS) {
-        setFileMessage(
-          `Loaded first ${MAX_NOTES_CHARS.toLocaleString()} characters from ${file.name}.`
-        );
-      } else {
-        setFileMessage(`Loaded notes file: ${file.name}`);
-      }
-    } catch {
-      setFileMessage("Could not read that notes file.");
-    }
-  }
-
-  async function handleCasePdfChange(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (!demoAcknowledged) {
-      setError("Confirm the fake/sample data notice before extracting PDF text.");
-      return;
-    }
-
-    const accessToken = await getAccessToken();
-
-    if (!accessToken) {
-      setError("Log in first before extracting PDF text.");
-      return;
-    }
-
-    setExtractingPdf(true);
-    setError("");
-    setFileMessage("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/extract-pdf", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "x-demo-acknowledged": "true",
-        },
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Could not extract PDF text.");
-      }
-
-      setLimitedCaseText(data.text || "");
-
-      setFileMessage(
-        data.wasTruncated
-          ? `Extracted text from PDF: ${file.name}. Long PDF was shortened for demo limits.`
-          : `Extracted text from PDF: ${file.name}`
-      );
-    } catch (pdfError) {
-      setError(
-        pdfError instanceof Error
-          ? pdfError.message
-          : "Something went wrong while reading the PDF."
-      );
-    } finally {
-      setExtractingPdf(false);
-    }
+    setMessage("Sample scenario loaded.");
   }
 
   async function analyzeCase() {
-    if (!demoAcknowledged) {
-      setError("Confirm the fake/sample data notice before running analysis.");
-      return;
-    }
-
-    if (!sourceCaseText.trim()) {
-      setError("Add fake/sample case text before running analysis.");
-      return;
-    }
-
     setLoading(true);
     setError("");
-    setResult(null);
-    setCopyMessage("");
+    setMessage("");
 
     try {
-      const accessToken = await getAccessToken();
-
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-
-      if (accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
-      }
-
+      const { data } = await supabase.auth.getSession();
       const response = await fetch("/api/analyze", {
         method: "POST",
-        headers,
-        body: JSON.stringify({
-          patientLabel,
-          practiceName,
-          payer,
-          service,
-          sourceCaseText,
-          notesText,
-          demoAcknowledged: true,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(data.session?.access_token
+            ? { Authorization: `Bearer ${data.session.access_token}` }
+            : {}),
+        },
+        body: JSON.stringify({ ...draft, demoAcknowledged: true }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to analyze case.");
-      }
-
-      setResult({
-        ...data,
-        humanReviewRequired: true,
-      });
-    } catch (analyzeError) {
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Analysis failed.");
+      setResult(payload as PriorAuthCase);
+      setMessage("Evidence-first readiness review completed.");
+    } catch (analysisError) {
       setError(
-        analyzeError instanceof Error
-          ? analyzeError.message
-          : "Something went wrong. Check your API key, environment variables, and terminal error."
+        analysisError instanceof Error
+          ? analysisError.message
+          : "Could not complete the readiness review."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  async function saveCase() {
-    if (!result) {
-      return;
-    }
-
+  async function saveResult() {
+    if (!result) return;
     if (!userId) {
-      setError("Log in first before saving demo cases.");
+      setError("Log in before saving a fake/sample case.");
       return;
     }
 
@@ -322,537 +324,432 @@ export default function NewCasePage() {
     setError("");
 
     try {
-      const newCase: PriorAuthCase = {
-        id: "",
-        patientLabel: result.patientLabel || patientLabel,
-        practiceName: result.practiceName || practiceName,
-        payer: result.payer || payer,
-        service: result.service || service,
-        status: "Ready for Human Review",
-        createdAt: new Date().toISOString().slice(0, 10),
-        overallRiskLevel: result.overallRiskLevel,
-        riskReason: result.riskReason,
-        issuesFound: result.issuesFound,
-        missingItems: result.missingItems,
-        recommendedNextSteps: result.recommendedNextSteps,
-        summary: result.summary,
-        followUpMessage: result.followUpMessage,
-        humanReviewRequired: true,
-        sourceCaseText,
-        notesText,
-      };
-
-      const savedCase = await addSupabaseCase(newCase);
-      router.push(`/cases/${savedCase.id}`);
+      const saved = await addSupabaseCase({ ...result, id: "" });
+      router.push(`/cases/${saved.id}`);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Something went wrong while saving."
-      );
+      setError(saveError instanceof Error ? saveError.message : "Could not save case.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function copyFollowUpMessage() {
-    if (!result?.followUpMessage) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(result.followUpMessage);
-      setCopyMessage("Follow-up message copied.");
-    } catch {
-      setCopyMessage("Could not copy message. You can still select and copy it manually.");
-    }
+  async function copyFollowUp() {
+    if (!result) return;
+    await navigator.clipboard.writeText(result.followUpMessage);
+    setMessage("Follow-up message copied.");
   }
-
-  const analysisDisabled =
-    loading ||
-    extractingPdf ||
-    !sourceCaseText.trim() ||
-    !demoAcknowledged ||
-    sourceCaseText.length > MAX_CASE_CHARS ||
-    notesText.length > MAX_NOTES_CHARS;
 
   return (
     <AppShell>
-      <div className="space-y-3">
-        <Badge variant="outline" className="border-blue-500/40 text-blue-200">
-          Fake/sample demo only
-        </Badge>
-
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Front-End Risk Review
+          <div className="eyebrow">Guided fake-case review</div>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+            Build a case-readiness review
           </h1>
-          <p className="mt-2 max-w-3xl text-slate-400">
-            Review a fake/sample case, flag eligibility, authorization,
-            documentation, coverage, coding, and follow-up risks, then generate
-            next steps for human review.
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-400 md:text-base">
+            Start with a realistic fictional scenario, adjust the structured facts, and run an evidence-first review that never invents payer requirements.
           </p>
         </div>
+        <Button onClick={analyzeCase} disabled={loading} className="h-11 bg-white px-5 text-slate-950 hover:bg-slate-200">
+          <Sparkles size={16} /> {loading ? "Reviewing case..." : "Run readiness review"}
+        </Button>
       </div>
 
-      {!userId && (
-        <div className="mt-6 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-sm text-blue-100">
-          You can analyze the built-in fake sample case without saving. Log in
-          only if you want to save demo reviews or extract PDF text.
+      <div className="mt-6 notice notice-amber">
+        <strong>Fake/sample data only.</strong> Do not paste real names, dates of birth, member IDs, insurance cards, clinical records, or any PHI. Every output requires human review.
+      </div>
+
+      <section className="panel mt-6 p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end">
+          <div className="flex-1">
+            <label className="field-label">Start from a fictional workflow</label>
+            <select
+              value={selectedSample}
+              onChange={(event) => loadSample(Number(event.target.value))}
+              className="field-input mt-2"
+            >
+              <option value={0}>Physical therapy — unresolved COB, CPT coverage, referral, and documents</option>
+              <option value={1}>Behavioral health — carve-out verified, recurring authorization pending</option>
+              <option value={2}>Pain management — payer evidence and authorization complete</option>
+            </select>
+          </div>
+          <Button variant="outline" onClick={() => loadSample(selectedSample)}>
+            <RotateCcw size={15} /> Reset sample
+          </Button>
         </div>
-      )}
+      </section>
 
-      <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-        <div className="flex gap-3">
-          <ShieldAlert className="mt-0.5 shrink-0 text-amber-200" size={20} />
-          <div>
-            <h2 className="font-semibold text-amber-100">
-              Fake/sample data confirmation
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-amber-100">
-              This demo is not configured for real patient information. Do not
-              enter real names, dates of birth, insurance IDs, medical record
-              numbers, real clinic records, or private patient details.
-            </p>
-
-            <label className="mt-4 flex cursor-pointer items-start gap-3 text-sm text-amber-50">
-              <input
-                type="checkbox"
-                checked={demoAcknowledged}
-                onChange={(event) => setDemoAcknowledged(event.target.checked)}
-                className="mt-1"
-              />
-              <span>
-                I understand this is for fake, sample, or de-identified demo
-                information only, and human review is required.
-              </span>
+      <div className="mt-6 space-y-5">
+        <FormSection title="1. Case and appointment" subtitle="Only fictional identifiers belong in this demo." defaultOpen>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <TextField label="Case ID" value={draft.caseIdentifier} onChange={(value) => updateDraft("caseIdentifier", value)} />
+            <TextField label="Sample patient label" value={draft.patientLabel} onChange={(value) => updateDraft("patientLabel", value)} />
+            <TextField label="Practice" value={draft.practiceName} onChange={(value) => updateDraft("practiceName", value)} />
+            <TextField label="Fictional date of birth" type="date" value={draft.dateOfBirth} onChange={(value) => updateDraft("dateOfBirth", value)} />
+            <TextField label="Appointment" type="datetime-local" value={toLocalDateTime(draft.appointmentAt)} onChange={(value) => updateDraft("appointmentAt", localDateTimeToIso(value))} />
+            <TextField label="Date of service" type="date" value={draft.dateOfService} onChange={(value) => updateDraft("dateOfService", value)} />
+            <TextField label="Specialty" value={draft.specialty} onChange={(value) => updateDraft("specialty", value)} />
+            <TextField label="Provider" value={draft.providerName} onChange={(value) => updateDraft("providerName", value)} />
+            <TextField label="Facility" value={draft.facilityName} onChange={(value) => updateDraft("facilityName", value)} />
+            <TextField label="Place of service" value={draft.placeOfService} onChange={(value) => updateDraft("placeOfService", value)} />
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-300">
+              <input type="checkbox" checked={draft.telehealth} onChange={(event) => updateDraft("telehealth", event.target.checked)} />
+              Telehealth service
             </label>
           </div>
-        </div>
-      </div>
+        </FormSection>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[0.85fr_1.5fr]">
-        <div className="space-y-6">
-          <Card className="border-slate-800 bg-slate-900/70 text-slate-100">
-            <CardHeader>
-              <CardTitle>Sample Cases</CardTitle>
-            </CardHeader>
-
-            <CardContent className="space-y-3">
-              {demoCases.map((sample, index) => (
-                <button
-                  key={sample.id}
-                  onClick={() => loadSampleCase(index)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 p-4 text-left text-sm transition hover:border-blue-500/60 hover:bg-slate-900"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-medium text-white">
-                        {sample.patientLabel}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-400">
-                        {sample.practiceName}
-                      </div>
-                    </div>
-
-                    <Badge variant={getRiskBadgeVariant(sample.overallRiskLevel)}>
-                      {sample.overallRiskLevel}
-                    </Badge>
-                  </div>
-
-                  <div className="mt-3 text-xs leading-5 text-slate-400">
-                    {sample.service}
-                  </div>
-                </button>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-800 bg-slate-900/70 text-slate-100">
-            <CardHeader>
-              <CardTitle>What this checks</CardTitle>
-            </CardHeader>
-
-            <CardContent className="space-y-3 text-sm text-slate-300">
-              <div className="flex gap-3">
-                <ClipboardCheck size={16} className="mt-0.5 text-blue-300" />
-                <span>Eligibility and benefits gaps</span>
-              </div>
-              <div className="flex gap-3">
-                <ClipboardCheck size={16} className="mt-0.5 text-blue-300" />
-                <span>Prior authorization uncertainty</span>
-              </div>
-              <div className="flex gap-3">
-                <ClipboardCheck size={16} className="mt-0.5 text-blue-300" />
-                <span>Missing plan of care, referral, or documentation</span>
-              </div>
-              <div className="flex gap-3">
-                <ClipboardCheck size={16} className="mt-0.5 text-blue-300" />
-                <span>Coverage, network, coding, and follow-up risk</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-slate-800 bg-slate-900/70 text-slate-100">
-          <CardHeader>
-            <CardTitle>Review Case</CardTitle>
-          </CardHeader>
-
-          <CardContent className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Patient Label</Label>
-                <Input
-                  value={patientLabel}
-                  onChange={(event) => setPatientLabel(event.target.value)}
-                  placeholder="Sample Patient: Jordan Miller"
-                  className="border-slate-800 bg-slate-950 text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Practice</Label>
-                <Input
-                  value={practiceName}
-                  onChange={(event) => setPracticeName(event.target.value)}
-                  placeholder="Lakeside Physical Therapy"
-                  className="border-slate-800 bg-slate-950 text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Payer</Label>
-                <Input
-                  value={payer}
-                  onChange={(event) => setPayer(event.target.value)}
-                  placeholder="Northstar Health Plan"
-                  className="border-slate-800 bg-slate-950 text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Service</Label>
-                <Input
-                  value={service}
-                  onChange={(event) => setService(event.target.value)}
-                  placeholder="PT evaluation + 8 follow-up visits"
-                  className="border-slate-800 bg-slate-950 text-white"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950 p-4">
-                <div className="flex items-center gap-2">
-                  <UploadCloud size={16} className="text-blue-300" />
-                  <Label>Upload Sample Case PDF</Label>
-                </div>
-
-                <Input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={handleCasePdfChange}
-                  disabled={extractingPdf || !userId || !demoAcknowledged}
-                  className="border-slate-800 bg-slate-900 text-white"
-                />
-
-                <p className="text-xs text-slate-500">
-                  Requires login and fake/sample confirmation.
-                </p>
-              </div>
-
-              <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950 p-4">
-                <div className="flex items-center gap-2">
-                  <FileText size={16} className="text-slate-300" />
-                  <Label>Upload Sample Case .txt</Label>
-                </div>
-
-                <Input
-                  type="file"
-                  accept=".txt"
-                  onChange={handleCaseTextFileChange}
-                  className="border-slate-800 bg-slate-900 text-white"
-                />
-
-                <p className="text-xs text-slate-500">
-                  Use fake, sample, or de-identified case text only.
-                </p>
-              </div>
-            </div>
-
-            {extractingPdf && (
-              <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3 text-sm text-blue-100">
-                Extracting PDF text...
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label>Sample Case Text</Label>
-                <span className="text-xs text-slate-500">
-                  {sourceCaseText.length.toLocaleString()} /{" "}
-                  {MAX_CASE_CHARS.toLocaleString()}
-                </span>
-              </div>
-
-              <Textarea
-                value={sourceCaseText}
-                onChange={(event) => setLimitedCaseText(event.target.value)}
-                placeholder="Paste fake/sample case details here. Do not enter real patient information."
-                className="min-h-56 border-slate-800 bg-slate-950 text-white"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Upload Demo Notes Text File</Label>
-              <Input
-                type="file"
-                accept=".txt"
-                onChange={handleNotesFileChange}
-                className="border-slate-800 bg-slate-950 text-white"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label>Additional Notes</Label>
-                <span className="text-xs text-slate-500">
-                  {notesText.length.toLocaleString()} /{" "}
-                  {MAX_NOTES_CHARS.toLocaleString()}
-                </span>
-              </div>
-
-              <Textarea
-                value={notesText}
-                onChange={(event) => setLimitedNotesText(event.target.value)}
-                placeholder="Paste fake/sample notes here."
-                className="min-h-40 border-slate-800 bg-slate-950 text-white"
-              />
-            </div>
-
-            {fileMessage && (
-              <p className="text-sm text-blue-300">{fileMessage}</p>
-            )}
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button onClick={analyzeCase} disabled={analysisDisabled}>
-                <Sparkles size={16} />
-                {loading ? "Analyzing..." : "Analyze Sample Case"}
-              </Button>
-
-              {result && (
-                <Button
-                  onClick={saveCase}
-                  disabled={saving}
-                  variant="outline"
-                >
-                  {saving ? "Saving..." : "Save Demo Review"}
-                </Button>
-              )}
-            </div>
-
-            {error && <p className="text-sm text-red-300">{error}</p>}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="mt-6 border-slate-800 bg-slate-900/70 text-slate-100">
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Front-End Risk Review</CardTitle>
-
-            {result?.humanReviewRequired && (
-              <Badge variant="destructive">Human review required</Badge>
-            )}
+        <FormSection title="2. Eligibility, benefits, network, and COB" subtitle="The workflow begins with date-of-service eligibility and the payer evidence behind it." defaultOpen>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <TextField label="Payer" value={draft.insurance.payer} onChange={(value) => updateInsurance("payer", value)} />
+            <TextField label="Plan" value={draft.insurance.planName} onChange={(value) => updateInsurance("planName", value)} />
+            <TextField label="Fictional member ID" value={draft.insurance.memberId} onChange={(value) => updateInsurance("memberId", value)} />
+            <TextField label="Group number" value={draft.insurance.groupNumber} onChange={(value) => updateInsurance("groupNumber", value)} />
+            <TextField label="Plan type" value={draft.insurance.planType} onChange={(value) => updateInsurance("planType", value)} />
+            <SelectField label="Eligibility status" value={draft.insurance.eligibilityStatus} options={eligibilityOptions} onChange={(value) => updateInsurance("eligibilityStatus", value as EligibilityStatus)} />
+            <TextField label="Effective date" type="date" value={draft.insurance.effectiveDate} onChange={(value) => updateInsurance("effectiveDate", value)} />
+            <TextField label="Termination date" type="date" value={draft.insurance.terminationDate} onChange={(value) => updateInsurance("terminationDate", value)} />
+            <SelectField label="Network status" value={draft.insurance.networkStatus} options={networkOptions} onChange={(value) => updateInsurance("networkStatus", value as NetworkStatus)} />
+            <SelectField label="COB status" value={draft.insurance.cobStatus} options={cobOptions} onChange={(value) => updateInsurance("cobStatus", value as CobStatus)} />
+            <TextField label="Primary insurance" value={draft.insurance.primaryInsurance} onChange={(value) => updateInsurance("primaryInsurance", value)} />
+            <TextField label="Secondary insurance" value={draft.insurance.secondaryInsurance} onChange={(value) => updateInsurance("secondaryInsurance", value)} />
+            <TextField label="BH administrator / carve-out" value={draft.insurance.behavioralHealthAdministrator} onChange={(value) => updateInsurance("behavioralHealthAdministrator", value)} />
+            <SelectField label="Verification source" value={draft.insurance.source} options={sourceOptions} onChange={(value) => updateInsurance("source", value as VerificationSource)} />
+            <TextField label="Source date" type="date" value={draft.insurance.sourceDate} onChange={(value) => updateInsurance("sourceDate", value)} />
+            <TextField label="Payer reference" value={draft.insurance.referenceNumber} onChange={(value) => updateInsurance("referenceNumber", value)} />
           </div>
-        </CardHeader>
 
-        <CardContent>
-          {!result ? (
-            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-8 text-center">
-              <ClipboardList className="mx-auto text-slate-500" size={34} />
-              <p className="mt-3 text-sm text-slate-400">
-                The risk level, missing items, recommended next steps, and
-                follow-up message will appear here after analysis.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <div className="text-sm text-slate-500">Overall Risk</div>
-                  <div className="mt-2">
-                    <Badge variant={getRiskBadgeVariant(result.overallRiskLevel)}>
-                      {result.overallRiskLevel}
-                    </Badge>
-                  </div>
-                </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <TextField label="Copay" value={draft.insurance.patientResponsibility.copay} onChange={(value) => updateResponsibility("copay", value)} />
+            <TextField label="Deductible" value={draft.insurance.patientResponsibility.deductible} onChange={(value) => updateResponsibility("deductible", value)} />
+            <TextField label="Deductible met" value={draft.insurance.patientResponsibility.deductibleMet} onChange={(value) => updateResponsibility("deductibleMet", value)} />
+            <TextField label="Coinsurance" value={draft.insurance.patientResponsibility.coinsurance} onChange={(value) => updateResponsibility("coinsurance", value)} />
+            <TextField label="Out-of-pocket max" value={draft.insurance.patientResponsibility.outOfPocketMax} onChange={(value) => updateResponsibility("outOfPocketMax", value)} />
+            <TextField label="Out-of-pocket met" value={draft.insurance.patientResponsibility.outOfPocketMet} onChange={(value) => updateResponsibility("outOfPocketMet", value)} />
+            <SelectField
+              label="Financial responsibility state"
+              value={draft.insurance.patientResponsibility.status}
+              options={["Verified", "Estimated", "Not provided", "Manual confirmation required"]}
+              onChange={(value) => updateResponsibility("status", value as AnalyzeCaseRequest["insurance"]["patientResponsibility"]["status"])}
+            />
+          </div>
+        </FormSection>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <div className="text-sm text-slate-500">Payer</div>
-                  <div className="mt-2 font-medium">{result.payer}</div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <div className="text-sm text-slate-500">Service</div>
-                  <div className="mt-2 font-medium">{result.service}</div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <div className="flex gap-3">
-                  <AlertTriangle
-                    className="mt-0.5 shrink-0 text-amber-300"
-                    size={18}
-                  />
-                  <div>
-                    <div className="font-medium text-white">Risk Reason</div>
-                    <p className="mt-2 text-sm leading-7 text-slate-300">
-                      {result.riskReason}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h2 className="font-semibold text-white">Issues Found</h2>
-                <div className="mt-3 grid gap-4">
-                  {result.issuesFound.map((issue, index) => (
-                    <div
-                      key={`${issue.category}-${issue.title}-${index}`}
-                      className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+        <FormSection title="3. CPT-level benefits" subtitle="Every requested CPT gets its own coverage, authorization, referral, limit, source, and reviewer state." defaultOpen>
+          <div className="space-y-4">
+            {draft.services.map((service, index) => (
+              <div key={service.id} className="rounded-3xl border border-slate-800 bg-slate-950/55 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-white">Service line {index + 1}</div>
+                  {draft.services.length > 1 && (
+                    <button
+                      onClick={() => updateDraft("services", draft.services.filter((item) => item.id !== service.id))}
+                      className="icon-button text-rose-200"
+                      aria-label="Remove service line"
                     >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <div className="text-xs uppercase tracking-wide text-slate-500">
-                            {issue.category}
-                          </div>
-                          <h3 className="mt-1 font-semibold text-white">
-                            {issue.title}
-                          </h3>
-                        </div>
-
-                        <Badge variant={getRiskBadgeVariant(issue.riskLevel)}>
-                          {issue.riskLevel}
-                        </Badge>
-                      </div>
-
-                      <div className="mt-4 grid gap-4 md:grid-cols-3">
-                        <div>
-                          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                            Finding
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-slate-300">
-                            {issue.finding}
-                          </p>
-                        </div>
-
-                        <div>
-                          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                            Why it matters
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-slate-300">
-                            {issue.whyItMatters}
-                          </p>
-                        </div>
-
-                        <div>
-                          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                            Recommended action
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-slate-300">
-                            {issue.recommendedAction}
-                          </p>
-
-                          <div className="mt-3 text-xs text-slate-500">
-                            Owner:{" "}
-                            <span className="text-slate-300">
-                              {issue.owner}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  <TextField label="CPT" value={service.cpt} onChange={(value) => updateService(service.id, "cpt", value)} />
+                  <TextField label="Description" value={service.description} onChange={(value) => updateService(service.id, "description", value)} />
+                  <SelectField label="Covered?" value={service.covered} options={["Yes", "No", "Unknown"]} onChange={(value) => updateService(service.id, "covered", value as YesNoUnknown)} />
+                  <TextField label="Coverage" value={service.coveragePercent} onChange={(value) => updateService(service.id, "coveragePercent", value)} />
+                  <SelectField label="Auth requirement" value={service.authorizationRequirement} options={["Required", "Not required", "Unknown"]} onChange={(value) => updateService(service.id, "authorizationRequirement", value as RequirementState)} />
+                  <SelectField label="Referral requirement" value={service.referralRequirement} options={["Required", "Not required", "Unknown"]} onChange={(value) => updateService(service.id, "referralRequirement", value as RequirementState)} />
+                  <NumberField label="Requested units" value={service.requestedUnits} onChange={(value) => updateService(service.id, "requestedUnits", value)} />
+                  <NullableNumberField label="Visit/unit limit" value={service.visitLimit} onChange={(value) => updateService(service.id, "visitLimit", value)} />
+                  <NullableNumberField label="Used" value={service.usedUnits} onChange={(value) => updateService(service.id, "usedUnits", value)} />
+                  <NullableNumberField label="Remaining" value={service.remainingUnits} onChange={(value) => updateService(service.id, "remainingUnits", value)} />
+                  <TextField label="Copay" value={service.copay} onChange={(value) => updateService(service.id, "copay", value)} />
+                  <TextField label="Coinsurance" value={service.coinsurance} onChange={(value) => updateService(service.id, "coinsurance", value)} />
+                  <SelectField label="Source" value={service.source} options={sourceOptions} onChange={(value) => updateService(service.id, "source", value as VerificationSource)} />
+                  <TextField label="Verified date" type="date" value={service.verifiedDate} onChange={(value) => updateService(service.id, "verifiedDate", value)} />
+                  <TextField label="Reference number" value={service.referenceNumber} onChange={(value) => updateService(service.id, "referenceNumber", value)} />
+                  <SelectField label="Reviewer state" value={service.reviewState} options={["Verified", "Query", "Blocked", "Not reviewed"]} onChange={(value) => updateService(service.id, "reviewState", value as ReviewState)} />
                 </div>
               </div>
+            ))}
+            <Button variant="outline" onClick={() => updateDraft("services", [...draft.services, makeService()])}>
+              <Plus size={15} /> Add CPT
+            </Button>
+          </div>
+        </FormSection>
 
-              <div className="grid gap-6 lg:grid-cols-2">
-                <div>
-                  <h2 className="font-semibold text-white">Missing Items</h2>
-                  <ul className="mt-3 space-y-2">
-                    {result.missingItems.map((item) => (
-                      <li
-                        key={item}
-                        className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300"
-                      >
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
+        <FormSection title="4. ICD-10, authorization, and referral" subtitle="PriorAuthIQ flags missing support; qualified staff make coding and coverage decisions." defaultOpen>
+          <div className="space-y-4">
+            {draft.diagnoses.map((diagnosis, index) => (
+              <div key={diagnosis.id} className="rounded-3xl border border-slate-800 bg-slate-950/55 p-4">
+                <div className="text-sm font-semibold text-white">Diagnosis {index + 1}</div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  <TextField label="ICD-10" value={diagnosis.icd10} onChange={(value) => updateDiagnosis(diagnosis.id, "icd10", value)} />
+                  <TextField label="Description" value={diagnosis.description} onChange={(value) => updateDiagnosis(diagnosis.id, "description", value)} />
+                  <TextField label="Linked CPTs" value={diagnosis.linkedCpts.join(", ")} onChange={(value) => updateDiagnosis(diagnosis.id, "linkedCpts", value.split(",").map((item) => item.trim()).filter(Boolean))} />
+                  <SelectField label="Support state" value={diagnosis.supportStatus} options={["Supported", "Missing support", "Needs coding review", "Not reviewed"]} onChange={(value) => updateDiagnosis(diagnosis.id, "supportStatus", value)} />
+                  <SelectField label="Source" value={diagnosis.source} options={sourceOptions} onChange={(value) => updateDiagnosis(diagnosis.id, "source", value)} />
                 </div>
-
-                <div>
-                  <h2 className="font-semibold text-white">
-                    Recommended Next Steps
-                  </h2>
-                  <ol className="mt-3 space-y-2">
-                    {result.recommendedNextSteps.map((step, index) => (
-                      <li
-                        key={step}
-                        className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm leading-6 text-slate-300"
-                      >
-                        <span className="mr-2 text-slate-500">
-                          {index + 1}.
-                        </span>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
+                <div className="mt-4">
+                  <TextAreaField label="Supporting note" value={diagnosis.supportingNote} onChange={(value) => updateDiagnosis(diagnosis.id, "supportingNote", value)} />
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="font-semibold text-white">
-                    Draft Follow-Up Message
-                  </h2>
-
-                  <Button
-                    onClick={copyFollowUpMessage}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Copy size={14} />
-                    Copy
-                  </Button>
-                </div>
-
-                <p className="mt-4 whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm leading-7 text-slate-300">
-                  {result.followUpMessage}
-                </p>
-
-                {copyMessage && (
-                  <p className="mt-3 text-sm text-blue-300">{copyMessage}</p>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5">
-                <h2 className="font-semibold text-blue-100">
-                  Human Review Required
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-blue-100">
-                  PriorAuthIQ is a workflow assistant for fake/sample case
-                  review. It does not make final billing, medical, legal, or
-                  coverage decisions. A human reviewer must verify all payer
-                  requirements, documentation, coverage, and next steps.
-                </p>
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/55 p-4">
+              <h3 className="font-semibold text-white">Authorization</h3>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <SelectField label="Status" value={draft.authorization.status} options={authorizationOptions} onChange={(value) => updateAuthorization("status", value as AuthorizationStatus)} />
+                <TextField label="Authorization number" value={draft.authorization.authorizationNumber} onChange={(value) => updateAuthorization("authorizationNumber", value)} />
+                <TextField label="Submitted date" type="date" value={draft.authorization.submittedDate} onChange={(value) => updateAuthorization("submittedDate", value)} />
+                <TextField label="Effective date" type="date" value={draft.authorization.effectiveDate} onChange={(value) => updateAuthorization("effectiveDate", value)} />
+                <TextField label="Expiration date" type="date" value={draft.authorization.expirationDate} onChange={(value) => updateAuthorization("expirationDate", value)} />
+                <TextField label="Approved CPTs" value={draft.authorization.approvedCpts.join(", ")} onChange={(value) => updateAuthorization("approvedCpts", value.split(",").map((item) => item.trim()).filter(Boolean))} />
+                <SelectField label="Source" value={draft.authorization.source} options={sourceOptions} onChange={(value) => updateAuthorization("source", value as VerificationSource)} />
+                <TextField label="Reference number" value={draft.authorization.referenceNumber} onChange={(value) => updateAuthorization("referenceNumber", value)} />
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#07101f] px-4 py-3 text-sm text-slate-300">
+                  <input type="checkbox" checked={draft.authorization.letterPresent} onChange={(event) => updateAuthorization("letterPresent", event.target.checked)} />
+                  Authorization letter present
+                </label>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/55 p-4">
+              <h3 className="font-semibold text-white">Referral</h3>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <SelectField label="Status" value={draft.referral.status} options={referralOptions} onChange={(value) => updateReferral("status", value as ReferralStatus)} />
+                <TextField label="Referral number" value={draft.referral.referralNumber} onChange={(value) => updateReferral("referralNumber", value)} />
+                <TextField label="Referring provider" value={draft.referral.referringProvider} onChange={(value) => updateReferral("referringProvider", value)} />
+                <TextField label="Effective date" type="date" value={draft.referral.effectiveDate} onChange={(value) => updateReferral("effectiveDate", value)} />
+                <TextField label="Expiration date" type="date" value={draft.referral.expirationDate} onChange={(value) => updateReferral("expirationDate", value)} />
+                <TextField label="Approved CPTs" value={draft.referral.approvedCpts.join(", ")} onChange={(value) => updateReferral("approvedCpts", value.split(",").map((item) => item.trim()).filter(Boolean))} />
+                <SelectField label="Source" value={draft.referral.source} options={sourceOptions} onChange={(value) => updateReferral("source", value as VerificationSource)} />
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#07101f] px-4 py-3 text-sm text-slate-300">
+                  <input type="checkbox" checked={draft.referral.documentPresent} onChange={(event) => updateReferral("documentPresent", event.target.checked)} />
+                  Referral document present
+                </label>
+              </div>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="5. Required documents and evidence" subtitle="The checklist is configurable; the demo never claims one universal document rule.">
+          <div className="space-y-3">
+            {draft.documents.map((document) => (
+              <div key={document.id} className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/55 p-4 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_.7fr_1fr_auto]">
+                <TextField label="Document" value={document.name} onChange={(value) => updateDocument(document.id, "name", value)} />
+                <SelectField label="Required?" value={document.required} options={["Required", "Not required", "Unknown"]} onChange={(value) => updateDocument(document.id, "required", value as RequirementState)} />
+                <SelectField label="Status" value={document.status} options={["Present", "Missing", "Needs review", "Not applicable"]} onChange={(value) => updateDocument(document.id, "status", value as DocumentItem["status"])} />
+                <label className="flex items-center gap-2 pt-7 text-sm text-slate-300">
+                  <input type="checkbox" checked={document.blocking} onChange={(event) => updateDocument(document.id, "blocking", event.target.checked)} /> Blocker
+                </label>
+                <TextField label="Fake file name" value={document.fileName} onChange={(value) => updateDocument(document.id, "fileName", value)} />
+                <button
+                  onClick={() => updateDraft("documents", draft.documents.filter((item) => item.id !== document.id))}
+                  className="icon-button mt-7 text-rose-200"
+                  aria-label="Remove document"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+            <Button variant="outline" onClick={() => updateDraft("documents", [...draft.documents, makeDocument()])}>
+              <Plus size={15} /> Add document
+            </Button>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <TextAreaField label="Reviewer notes" value={draft.reviewerNotes} onChange={(value) => updateDraft("reviewerNotes", value)} />
+            <TextAreaField label="Source case summary" value={draft.sourceCaseText} onChange={(value) => updateDraft("sourceCaseText", value)} />
+          </div>
+        </FormSection>
+      </div>
+
+      <section className="mt-7 rounded-3xl border border-blue-500/25 bg-blue-500/10 p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 font-semibold text-blue-100">
+              <FileSearch size={18} /> Evidence-first review
+            </div>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-blue-100/80">
+              The engine evaluates only the structured facts above. Missing information stays missing; it does not infer payer rules from a manual note.
+            </p>
+          </div>
+          <Button onClick={analyzeCase} disabled={loading} className="h-11 bg-white px-5 text-slate-950 hover:bg-slate-200">
+            <Sparkles size={16} /> {loading ? "Reviewing..." : "Run readiness review"}
+          </Button>
+        </div>
+      </section>
+
+      {error && <div className="mt-5 notice notice-rose">{error}</div>}
+      {message && <div className="mt-5 notice notice-blue">{message}</div>}
+
+      <section className="mt-7 panel p-5 md:p-6">
+        {!result ? (
+          <div className="py-12 text-center">
+            <ClipboardCheck className="mx-auto text-slate-600" size={38} />
+            <h2 className="mt-4 text-lg font-semibold text-white">Readiness result will appear here</h2>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+              The output will show operational status, blockers, unresolved queries, evidence state, owner, deadline, and a follow-up draft.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={result.status} />
+                  <PriorityBadge priority={result.priority} />
+                </div>
+                <h2 className="mt-4 text-2xl font-semibold text-white">{result.caseIdentifier} readiness review</h2>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-400">{result.readinessSummary}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={copyFollowUp}><Copy size={15} /> Copy follow-up</Button>
+                <Button onClick={saveResult} disabled={saving || !userId}><Save size={15} /> {saving ? "Saving..." : userId ? "Save case" : "Log in to save"}</Button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <ResultMetric label="Open exceptions" value={openExceptions.length} />
+              <ResultMetric label="Blocking issues" value={openExceptions.filter((item) => item.blocking).length} />
+              <ResultMetric label="Evidence items" value={result.evidence.length} />
+            </div>
+
+            <div className="mt-6 space-y-3">
+              {openExceptions.map((exception) => (
+                <div key={exception.id} className={`rounded-2xl border p-4 ${exception.blocking ? "border-rose-500/25 bg-rose-500/10" : "border-slate-800 bg-slate-950/60"}`}>
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
+                        {exception.blocking ? <AlertTriangle size={14} className="text-rose-300" /> : <CheckCircle2 size={14} className="text-amber-300" />}
+                        {exception.category}
+                      </div>
+                      <h3 className="mt-2 font-semibold text-white">{exception.failedCheck}</h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">{exception.explanation}</p>
+                    </div>
+                    <PriorityBadge priority={exception.priority} />
+                  </div>
+                  <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                    <InfoBox label="Next action" value={exception.recommendedAction} />
+                    <InfoBox label="Owner" value={exception.owner} />
+                    <InfoBox label="Evidence state" value={exception.evidenceState} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/65 p-5">
+              <h3 className="font-semibold text-white">Draft follow-up message</h3>
+              <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-7 text-slate-300">{result.followUpMessage}</pre>
+            </div>
+          </div>
+        )}
+      </section>
     </AppShell>
+  );
+}
+
+function FormSection({
+  title,
+  subtitle,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details open={defaultOpen} className="panel group overflow-hidden">
+      <summary className="cursor-pointer list-none p-5 md:p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="font-semibold text-white">{title}</h2>
+            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+          </div>
+          <span className="text-xl text-slate-600 transition group-open:rotate-45">+</span>
+        </div>
+      </summary>
+      <div className="border-t border-slate-800 p-5 md:p-6">{children}</div>
+    </details>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="field-input mt-2" />
+    </label>
+  );
+}
+
+function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return (
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <input type="number" min={0} value={value} onChange={(event) => onChange(Number(event.target.value) || 0)} className="field-input mt-2" />
+    </label>
+  );
+}
+
+function NullableNumberField({ label, value, onChange }: { label: string; value: number | null; onChange: (value: number | null) => void }) {
+  return (
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <input type="number" min={0} value={value ?? ""} onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))} className="field-input mt-2" />
+    </label>
+  );
+}
+
+function SelectField({ label, value, options, onChange }: { label: string; value: string; options: readonly string[]; onChange: (value: string) => void }) {
+  return (
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="field-input mt-2">
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function TextAreaField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} className="field-input mt-2 min-h-32 resize-y" />
+    </label>
+  );
+}
+
+function ResultMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-2 text-2xl font-bold text-white">{value}</div>
+    </div>
+  );
+}
+
+function InfoBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-[#07101f] p-3">
+      <div className="text-xs uppercase tracking-wide text-slate-600">{label}</div>
+      <div className="mt-2 leading-6 text-slate-300">{value}</div>
+    </div>
   );
 }

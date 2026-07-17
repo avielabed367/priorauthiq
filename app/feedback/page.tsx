@@ -130,11 +130,10 @@ export default function FeedbackPage() {
             </h1>
 
             <p className="mt-5 text-lg leading-8 text-slate-300">
-              PriorAuthIQ is being rebuilt as a fake-data front-end
-              denial-risk review tool for billing/admin teams. The goal is to
-              help catch eligibility, authorization, documentation, coding,
-              coverage/network, and follow-up risks earlier — before they turn
-              into denials, delays, or unpaid claims.
+              PriorAuthIQ is being rebuilt as a fake-data pre-visit benefits,
+              authorization-readiness, and exception-management workspace. The
+              goal is to show what is verified, what remains unresolved, what
+              evidence supports the answer, and who owns the next action.
             </p>
 
             <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-sm leading-6 text-amber-100">
@@ -155,20 +154,20 @@ export default function FeedbackPage() {
 
               <div className="mt-4 space-y-3 text-sm leading-6 text-slate-400">
                 <p>
-                  Is catching eligibility/auth/documentation risk before denial
-                  more useful than only helping after a denial happens?
+                  Does CPT-specific benefits, COB, authorization, and referral
+                  review match the way your team works before a visit?
                 </p>
                 <p>
-                  Does the fake sample case feel close to a real billing/admin
-                  workflow?
+                  Does the fictional case feel realistic, including incomplete or
+                  conflicting information?
                 </p>
                 <p>
-                  What would make you trust or not trust the analysis if it were
-                  accurate?
+                  Which payer evidence, reference numbers, or audit details would
+                  you need before trusting a result?
                 </p>
                 <p>
-                  What would need to change before a billing team, RCM team, or
-                  clinic would actually test it?
+                  Would the exception queue reduce unresolved cases, or would it add
+                  another step to the current workflow?
                 </p>
               </div>
             </div>
@@ -234,7 +233,7 @@ export default function FeedbackPage() {
 
               <div>
                 <label className="text-sm text-slate-400">
-                  How useful does this front-end risk review workflow seem?
+                  How useful does this case-readiness and exception workflow seem?
                 </label>
                 <select
                   value={usefulness}
@@ -250,13 +249,12 @@ export default function FeedbackPage() {
 
               <div>
                 <label className="text-sm text-slate-400">
-                  In your workflow, what creates the most denial-risk before a
-                  claim is even submitted?
+                  Which failed pre-visit check creates the most rework?
                 </label>
                 <textarea
                   value={biggestProblem}
                   onChange={(event) => setBiggestProblem(event.target.value)}
-                  placeholder="Example: benefits not verified, auth unclear, missing documentation, coding issues, provider follow-up, front desk handoff, visit limits..."
+                  placeholder="Example: inactive coverage, COB conflict, CPT not covered, missing authorization, expired referral, missing payer proof, or no assigned owner..."
                   className="mt-2 min-h-28 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
                 />
               </div>
@@ -276,8 +274,8 @@ export default function FeedbackPage() {
 
               <div>
                 <label className="text-sm text-slate-400">
-                  Would you use, test, or react to something like this if the
-                  analysis were accurate?
+                  Would you test this alongside your current workflow using only
+                  fictional or properly de-identified cases?
                 </label>
                 <select
                   value={wouldUse}

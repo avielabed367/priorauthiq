@@ -89,7 +89,11 @@ export default function FeedbackInboxPage() {
   }
 
   useEffect(() => {
-    loadFeedback();
+    const timeoutId = window.setTimeout(() => {
+      void loadFeedback();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   function showMessage(text: string) {
@@ -251,7 +255,7 @@ export default function FeedbackInboxPage() {
           </h1>
 
           <p className="mt-2 max-w-3xl text-slate-400">
-            Review feedback about the front-end denial-risk workflow, sample
+            Review feedback about the pre-visit readiness workflow, sample
             case realism, missing features, trust concerns, and whether the tool
             would save time if accurate.
           </p>

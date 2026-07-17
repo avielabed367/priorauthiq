@@ -72,7 +72,7 @@ export default function LoginPage() {
         <Link href="/" className="mb-8 block text-center">
           <div className="text-2xl font-bold tracking-tight">PriorAuthIQ</div>
           <div className="mt-1 text-sm text-slate-400">
-            Front-End Denial-Risk Review
+            Pre-Visit Readiness & Exception Management
           </div>
         </Link>
 
@@ -88,8 +88,8 @@ export default function LoginPage() {
 
             <p className="mt-2 text-sm leading-6 text-slate-400">
               You can analyze the built-in fake sample case without logging in.
-              Use an account only to save demo reviews, edit saved follow-up
-              drafts, or test PDF extraction.
+              Use an account only to save fictional case reviews, update exception
+              ownership, and preserve readiness decisions.
             </p>
           </div>
 

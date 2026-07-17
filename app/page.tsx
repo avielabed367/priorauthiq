@@ -3,361 +3,271 @@ import {
   ArrowRight,
   CheckCircle2,
   ClipboardCheck,
-  FileText,
-  LockKeyhole,
-  MessageSquare,
-  ShieldAlert,
-  Sparkles,
+  Clock3,
+  FileCheck2,
+  FileWarning,
+  SearchCheck,
+  ShieldCheck,
   Workflow,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 
-const workflowSteps = [
+const workflow = [
   {
-    title: "Review the sample case",
+    icon: SearchCheck,
+    title: "Verify the case",
     description:
-      "Start with fake/sample case details that show common front-end workflow gaps like unclear benefits, authorization uncertainty, missing documents, and follow-up risk.",
-    icon: FileText,
+      "Review date-of-service eligibility, COB, network, CPT-level benefits, patient responsibility, authorization, referral, diagnosis, and documents.",
   },
   {
-    title: "Catch front-end risk",
+    icon: FileWarning,
+    title: "Create the exception",
     description:
-      "Flag eligibility, authorization, documentation, coding, coverage/network, and follow-up issues before they become downstream denials.",
-    icon: ShieldAlert,
+      "When a check fails or evidence is missing, PriorAuthIQ explains what is unresolved, whether it blocks the service, and why it matters.",
   },
   {
-    title: "Generate next steps",
+    icon: Workflow,
+    title: "Own the next action",
     description:
-      "Get missing items, recommended actions, task ownership, and a follow-up message draft for human review.",
-    icon: ClipboardCheck,
+      "Assign an owner, deadline, priority, follow-up status, payer response, and resolution notes so the case cannot quietly disappear.",
+  },
+  {
+    icon: FileCheck2,
+    title: "Preserve the proof",
+    description:
+      "Keep payer source, verification date, reference number, authorization letter, eligibility record, and human confirmation with the case.",
   },
 ];
 
-const riskAreas = [
-  "Eligibility and benefits not fully verified",
-  "Prior authorization requirement unclear",
-  "Visit limits or coverage rules missing",
-  "Plan of care, referral, or documentation gaps",
-  "Medical necessity support not specific enough",
-  "Coverage, network, coding, or follow-up risk",
-];
-
-const valuePoints = [
-  "Specific case review, not generic advice",
-  "Missing-items checklist",
-  "Follow-up message draft",
-  "Human review required",
-  "Fake/sample demo data only",
-  "Designed to reduce manual review friction",
+const principles = [
+  "Readiness over generic risk scoring",
+  "Evidence over unsupported AI claims",
+  "CPT-specific results over plan-level summaries",
+  "Human review over autonomous decisions",
+  "Every issue gets an owner and deadline",
+  "Missing information stays missing",
 ];
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <section className="relative overflow-hidden border-b border-slate-800">
-        <div className="absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="absolute right-10 top-40 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute bottom-0 left-10 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
-
-        <div className="relative mx-auto max-w-7xl px-6 py-8">
-          <nav className="flex items-center justify-between">
-            <Link href="/" className="text-xl font-bold tracking-tight">
-              PriorAuthIQ
+    <main className="min-h-screen overflow-hidden bg-[#07101f] text-white">
+      <section className="relative border-b border-slate-800/80">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(59,130,246,.16),transparent_32%),radial-gradient(circle_at_85%_25%,rgba(14,165,233,.10),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(16,185,129,.08),transparent_35%)]" />
+        <div className="relative mx-auto max-w-7xl px-6 py-7">
+          <nav className="flex items-center justify-between gap-4">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-400/25 bg-blue-400/10 text-blue-200">
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <div className="font-bold tracking-tight">PriorAuthIQ</div>
+                <div className="text-xs text-slate-500">Pre-visit readiness workspace</div>
+              </div>
             </Link>
 
             <div className="flex items-center gap-3">
-              <Link
-                href="/dashboard"
-                className="hidden text-sm text-slate-300 transition hover:text-white sm:block"
-              >
-                Reviews
+              <Link href="/dashboard" className="hidden text-sm text-slate-400 transition hover:text-white sm:block">
+                Exception queue
               </Link>
-
-              <Link
-                href="/feedback"
-                className="hidden text-sm text-slate-300 transition hover:text-white sm:block"
-              >
+              <Link href="/feedback" className="hidden text-sm text-slate-400 transition hover:text-white md:block">
                 Feedback
               </Link>
-
-              <Link
-                href="/new-case"
-                className="inline-flex h-10 items-center justify-center rounded-md bg-white px-4 text-sm font-medium text-slate-950 transition hover:bg-slate-200"
-              >
-                Analyze Sample Case
+              <Link href="/new-case" className="primary-button">
+                Open fake-data demo
               </Link>
             </div>
           </nav>
 
-          <div className="grid items-center gap-12 py-20 lg:grid-cols-2 lg:py-28">
+          <div className="grid items-center gap-14 py-20 lg:grid-cols-[1.05fr_.95fr] lg:py-28">
             <div>
-              <div className="mb-6 inline-flex w-fit rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-200">
-                Fake-data front-end denial-risk review demo
-              </div>
-
-              <h1 className="max-w-4xl text-5xl font-bold tracking-tight md:text-7xl">
-                Catch denial-risk issues before they become denials.
+              <div className="eyebrow">Fake-data V2 · Human review required</div>
+              <h1 className="mt-6 max-w-4xl text-5xl font-bold tracking-[-0.045em] md:text-7xl">
+                Verify the case. Resolve the exception. Protect the claim.
               </h1>
-
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-                PriorAuthIQ helps billing/admin teams review sample cases for
-                eligibility, authorization, documentation, coding, coverage, and
-                follow-up risks — so issues can be caught earlier, not after
-                revenue is already at risk.
+              <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-300">
+                PriorAuthIQ helps billing and RCM teams determine whether a case is ready before the service, identify unresolved benefits and authorization issues, preserve payer evidence, and keep every exception visible until it is resolved.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-4">
-                <Link
-                  href="/new-case"
-                  className="inline-flex h-12 items-center justify-center rounded-md bg-white px-6 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
-                >
-                  Analyze Sample Case <ArrowRight className="ml-2" size={18} />
+              <div className="mt-9 flex flex-wrap gap-3">
+                <Link href="/new-case" className="primary-button h-12 px-6">
+                  Review a fictional case <ArrowRight size={17} />
                 </Link>
-
-                <Link
-                  href="/dashboard"
-                  className="inline-flex h-12 items-center justify-center rounded-md border border-slate-700 px-6 text-sm font-semibold text-white transition hover:bg-slate-900"
-                >
-                  View Demo Reviews
-                </Link>
-
-                <Link
-                  href="/feedback"
-                  className="inline-flex h-12 items-center justify-center rounded-md border border-blue-500/40 px-6 text-sm font-semibold text-blue-200 transition hover:bg-blue-500/10"
-                >
-                  Leave Feedback
+                <Link href="/dashboard" className="secondary-button h-12 px-6">
+                  View exception queue
                 </Link>
               </div>
 
-              <div className="mt-8 flex gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                <ShieldAlert className="mt-0.5 shrink-0" size={18} />
-                <p>
-                  Demo environment only. Use fake, sample, or de-identified
-                  examples. Do not enter real patient information, real
-                  insurance IDs, medical record numbers, or private medical
-                  records.
-                </p>
+              <div className="mt-8 notice notice-amber max-w-2xl">
+                <strong>Demo boundary:</strong> use only fake/sample information. Do not enter real patient names, dates of birth, member IDs, insurance cards, clinical records, or PHI.
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5 shadow-2xl shadow-blue-950/20">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div className="rounded-[2rem] border border-slate-800 bg-slate-900/65 p-4 shadow-2xl shadow-blue-950/30 backdrop-blur">
+              <div className="rounded-[1.6rem] border border-slate-800 bg-[#091426] p-5 md:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <div className="text-sm text-slate-500">
-                      Sample Case Preview
-                    </div>
-                    <div className="mt-1 font-semibold">
-                      Jordan Miller — Lakeside Physical Therapy
-                    </div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">PAIQ-PT-001</div>
+                    <h2 className="mt-2 text-lg font-semibold">Jordan Miller · PT readiness review</h2>
+                    <p className="mt-1 text-sm text-slate-500">Northstar Choice PPO · Appointment tomorrow</p>
                   </div>
+                  <span className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-100">Blocked</span>
+                </div>
 
-                  <div className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs text-red-200">
-                    High Risk
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <PreviewMetric label="Eligibility" value="Active" state="good" />
+                  <PreviewMetric label="CPT 97110" value="Coverage unknown" state="warn" />
+                  <PreviewMetric label="COB" value="Unresolved" state="bad" />
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/10 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-rose-100">
+                    <FileWarning size={16} /> Required referral is missing
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    Blocks service · Owner: Front Desk · Due before appointment · Evidence: not verified
+                  </p>
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold">CPT-specific verification</div>
+                    <span className="text-xs text-blue-200">2 service lines</span>
+                  </div>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <PreviewRow code="97161" coverage="Covered" auth="Not required" source="Payer portal" />
+                    <PreviewRow code="97110" coverage="Unknown" auth="Unknown" source="Not verified" />
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3">
-                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-                    <div className="text-xs uppercase tracking-wide text-slate-500">
-                      Front-End Risk
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">
-                      Benefits were not fully verified, PT visit limits are
-                      unclear, and the authorization requirement for follow-up
-                      visits has not been confirmed.
-                    </p>
+                <div className="mt-3 flex items-center justify-between rounded-2xl border border-blue-500/25 bg-blue-500/10 p-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-blue-200/70">Next action</div>
+                    <div className="mt-1 text-sm text-blue-100">Verify CPT 97110, obtain referral, attach payer proof.</div>
                   </div>
-
-                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-                    <div className="text-xs uppercase tracking-wide text-slate-500">
-                      Missing Items
-                    </div>
-                    <ul className="mt-2 space-y-2 text-sm text-slate-300">
-                      <li>• Full eligibility and benefits verification</li>
-                      <li>• Prior authorization requirement confirmation</li>
-                      <li>• Plan of care and stronger medical necessity notes</li>
-                    </ul>
-                  </div>
-
-                  <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-blue-200">
-                      <Sparkles size={16} />
-                      Follow-up draft prepared
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">
-                      The review generates specific next steps and a message the
-                      billing/admin team can review before contacting the front
-                      desk or provider.
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-                    <div className="text-sm font-medium text-amber-100">
-                      Human review required
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-amber-100">
-                      PriorAuthIQ does not make final billing, medical, legal,
-                      or coverage decisions.
-                    </p>
-                  </div>
+                  <Clock3 className="text-blue-300" size={20} />
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="grid gap-4 pb-14 md:grid-cols-3">
-            {workflowSteps.map((step) => {
-              const Icon = step.icon;
-
-              return (
-                <Card
-                  key={step.title}
-                  className="border-slate-800 bg-slate-900/70 text-white"
-                >
-                  <CardContent className="p-6">
-                    <Icon className="mb-4 text-blue-300" />
-                    <h3 className="font-semibold">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">
-                      {step.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
           </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-6 py-20">
-        <div className="grid gap-10 lg:grid-cols-2">
+        <div className="max-w-3xl">
+          <div className="eyebrow">Built from billing and RCM feedback</div>
+          <h2 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
+            Not another denial score. A closed-loop workflow.
+          </h2>
+          <p className="mt-5 text-lg leading-8 text-slate-400">
+            The strongest feedback was that teams care less about a broad high/medium/low score and more about what failed, what evidence supports the answer, whether it blocks the service, who owns it, and whether it was resolved.
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {workflow.map((item) => {
+            const Icon = item.icon;
+            return (
+              <article key={item.title} className="panel p-6">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-400/10 text-blue-200">
+                  <Icon size={20} />
+                </div>
+                <h3 className="mt-5 font-semibold text-white">{item.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-500">{item.description}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="border-y border-slate-800/80 bg-slate-950/25">
+        <div className="mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:grid-cols-2">
           <div>
-            <div className="mb-4 inline-flex rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
-              Built for billing/admin workflow review
-            </div>
-
-            <h2 className="text-4xl font-bold tracking-tight">
-              A simple review tool, not another dashboard.
-            </h2>
-
-            <p className="mt-5 max-w-2xl leading-8 text-slate-300">
-              PriorAuthIQ is designed to reduce friction in front-end review.
-              The goal is not to replace experienced billers or add another
-              system to manage. The goal is to quickly show what is risky, what
-              is missing, why it matters, and what should happen next.
+            <div className="eyebrow">What V2 checks</div>
+            <h2 className="mt-4 text-4xl font-bold tracking-tight">One readiness record for the full pre-visit handoff.</h2>
+            <p className="mt-5 text-lg leading-8 text-slate-400">
+              The demo begins with eligibility and benefits, then connects CPT coverage, authorization, referral, ICD-10 support, required documents, evidence, exceptions, and follow-up.
             </p>
-
-            <div className="mt-8 flex gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-300">
-              <LockKeyhole
-                className="mt-0.5 shrink-0 text-slate-400"
-                size={18}
-              />
-              <p>
-                This demo is not configured for real patient information. Real
-                clinic use would require proper privacy, security, compliance,
-                workflow, and legal review before handling protected health
-                information.
-              </p>
-            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            {riskAreas.map((riskArea) => (
-              <div
-                key={riskArea}
-                className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-200"
-              >
-                <CheckCircle2 className="shrink-0 text-blue-300" size={18} />
-                {riskArea}
+            {[
+              "Date-of-service eligibility",
+              "Coordination of Benefits",
+              "Network and carve-out status",
+              "CPT-level coverage",
+              "Copay, deductible, and coinsurance",
+              "Visit and unit limits",
+              "Authorization dates, CPTs, and units",
+              "Referral status and document",
+              "ICD-10 support and linked CPTs",
+              "Required document checklist",
+              "Payer source and reference number",
+              "Owner, deadline, and resolution",
+            ].map((item) => (
+              <div key={item} className="flex gap-3 rounded-2xl border border-slate-800 bg-slate-900/55 p-4 text-sm leading-6 text-slate-300">
+                <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-300" size={17} />
+                {item}
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-y border-slate-800 bg-slate-900/30">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
-              <div className="mb-4 inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-200">
-                Review → Risk → Next steps
+      <section className="mx-auto max-w-7xl px-6 py-20">
+        <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
+          <div>
+            <div className="eyebrow">Product principles</div>
+            <h2 className="mt-4 text-4xl font-bold tracking-tight">Trust starts with saying what the system does not know.</h2>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {principles.map((item) => (
+              <div key={item} className="panel flex items-center gap-3 p-4 text-sm text-slate-300">
+                <ClipboardCheck className="shrink-0 text-blue-300" size={18} />
+                {item}
               </div>
+            ))}
+          </div>
+        </div>
 
-              <h2 className="text-4xl font-bold tracking-tight">
-                Clear output for real workflow gaps.
-              </h2>
-
-              <p className="mt-5 leading-8 text-slate-300">
-                The demo is built around a realistic fake case where the front
-                desk, provider, and billing/admin team need to resolve missing
-                information before the case moves forward.
+        <div className="mt-14 rounded-[2rem] border border-blue-500/25 bg-[linear-gradient(135deg,rgba(59,130,246,.13),rgba(14,165,233,.05))] p-7 md:p-10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="eyebrow">Current validation milestone</div>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight">Test the workflow against expert manual reviews.</h2>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+                The goal is to measure correct blockers, missed issues, false flags, time to resolution, and the percentage of exceptions resolved before the service deadline—not to claim guaranteed denial reduction.
               </p>
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {valuePoints.map((point) => (
-                <div
-                  key={point}
-                  className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
-                >
-                  <div className="flex items-center gap-3">
-                    <Workflow className="text-blue-300" size={18} />
-                    <div className="font-medium text-white">{point}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-6 py-20">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8 md:p-10">
-            <div className="flex items-center gap-3">
-              <ClipboardCheck className="text-blue-200" size={22} />
-              <h2 className="text-3xl font-bold tracking-tight">
-                Review a sample case.
-              </h2>
-            </div>
-
-            <p className="mt-4 text-slate-300">
-              The built-in sample case shows unresolved benefits, unclear
-              authorization rules, missing documentation, visit-limit questions,
-              and follow-up tasks that need human review.
-            </p>
-
-            <Link
-              href="/new-case"
-              className="mt-8 inline-flex h-12 items-center justify-center rounded-md bg-white px-6 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
-            >
-              Analyze Sample Case
-            </Link>
-          </div>
-
-          <div className="rounded-3xl border border-blue-500/30 bg-blue-500/10 p-8 md:p-10">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="text-blue-200" size={22} />
-              <h2 className="text-3xl font-bold tracking-tight">
-                Share workflow feedback.
-              </h2>
-            </div>
-
-            <p className="mt-4 text-slate-300">
-              Feedback from billing, RCM, denial management, prior auth, and
-              healthcare admin professionals helps evaluate whether the workflow
-              feels realistic, useful, and specific enough.
-            </p>
-
-            <Link
-              href="/feedback"
-              className="mt-8 inline-flex h-12 items-center justify-center rounded-md border border-blue-400/50 px-6 text-sm font-semibold text-blue-100 transition hover:bg-blue-500/10"
-            >
-              Give Feedback
+            <Link href="/new-case" className="primary-button h-12 shrink-0 px-6">
+              Open the V2 demo <ArrowRight size={17} />
             </Link>
           </div>
         </div>
       </section>
+
+      <footer className="border-t border-slate-800/80">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-8 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <div>PriorAuthIQ · Working-name fake-data demo</div>
+          <div>Human review required · No real PHI</div>
+        </div>
+      </footer>
     </main>
+  );
+}
+
+function PreviewMetric({ label, value, state }: { label: string; value: string; state: "good" | "warn" | "bad" }) {
+  const dot = state === "good" ? "bg-emerald-300" : state === "bad" ? "bg-rose-300" : "bg-amber-300";
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3">
+      <div className="flex items-center gap-2 text-xs text-slate-500"><span className={`h-2 w-2 rounded-full ${dot}`} /> {label}</div>
+      <div className="mt-2 text-sm font-medium text-slate-200">{value}</div>
+    </div>
+  );
+}
+
+function PreviewRow({ code, coverage, auth, source }: { code: string; coverage: string; auth: string; source: string }) {
+  return (
+    <div className="grid grid-cols-[.5fr_1fr_1fr_1fr] gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs text-slate-400">
+      <span className="font-semibold text-white">{code}</span><span>{coverage}</span><span>{auth}</span><span>{source}</span>
+    </div>
   );
 }

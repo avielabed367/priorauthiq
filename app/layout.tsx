@@ -2,16 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PriorAuthIQ | Front-End Denial-Risk Review",
+  title: "PriorAuthIQ | Pre-Visit Readiness & Exception Management",
   description:
-    "Fake-data demo for billing/admin teams to review sample cases, catch eligibility, authorization, documentation, coding, coverage, and follow-up risks, and prepare next steps for human review.",
+    "Fake-data demo for benefits verification, authorization readiness, payer evidence, and exception management. Human review required.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body>{children}</body>
